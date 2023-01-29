@@ -1,0 +1,75 @@
+---
+title: "stats170"
+author: "shoichiro ueno"
+date: "2023-01-26"
+output: html_document
+---
+
+
+```{r}
+library(Quandl)
+library(dygraphs)
+Quandl.api_key("") 
+```
+
+
+```{r data}
+Price_of_Houses = Quandl(code="FRED/ASPUS",
+            type="ts",
+            collapse="quarterly",
+            meta=TRUE)
+
+# Do not include 2020 and 2021 years in your data
+Price_of_Houses = window(Price_of_Houses, start = c(1963, 1), end = c(2019, 4))
+```
+
+```{r}
+sum(is.na(Price_of_Houses))
+```
+
+
+```{r dygraph}
+Price_of_Houses %>% 
+  dygraph() %>% 
+  dyRangeSelector
+```
+
+```{r test data}
+Price_of_Houses_train = Price_of_Houses %>% 
+  window(end = c(2017, 4))
+
+Price_of_Houses_test = Price_of_Houses %>% 
+  window(start = 2018)
+```
+
+I think the multiplicative decompostion should be done. There is no sesasonality in quarters. Hoever, it seems to me that the data has repetitve pattern in every ten years in which it increase drastically in the first five to six years and it levels down or decrease in last two one to two years. The pattern is more apparant during 2000 to 2010 and 2010 to 2017 than it is before 2000. Thus I think multiplicative decompostion is the way to go. If we compare the random term of both plots below, we can more confirmly say that the multiplicative decompostion approach is more appropriate.
+```{r decomposition}
+plot(decompose(Price_of_Houses_train))
+
+plot(decompose(Price_of_Houses_train, type = "mult"))
+```
+
+```{r seasonal boxplot}
+# there is no sasonal effect quarterly
+boxplot(Price_of_Houses_train ~ cycle(Price_of_Houses_train))
+```
+```{r variance}
+plot(Price_of_Houses_train)
+```
+```{r}
+acf(Price_of_Houses_train)
+```
+
+```{r}
+log_data = log(Price_of_Houses_train)
+
+quadratic_data = Price_of_Houses_train^2
+
+squared_data = sqrt(Price_of_Houses_train)
+
+par(mfrow = c(3, 1))
+plot(log_data, main = "log") 
+plot(quadratic_data, main = "quadratic")
+plot(squared_data, main = "squared")
+```
+
