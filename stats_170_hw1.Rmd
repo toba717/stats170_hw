@@ -24,7 +24,7 @@ retails = window(retails, end = c(2019, 12))
 ```
 
 ```{r}
-retails_elecronic = Quandl(code="FRED/RSXFSN",
+retails_elecronic = Quandl(code="FRED/RSEASN",
             type="ts",
             collapse="monthly",
             meta=TRUE)
@@ -47,6 +47,9 @@ sum(is.na(retails_hobby))
 sum(is.na(retails_furniture))
 ```
 
+```{r}
+```
+
 
 ```{r dygraph}
 retails_elecronic %>% 
@@ -64,22 +67,22 @@ retails_furniture %>%
 
 ```{r test data}
 retails_electronic_train = retails_elecronic %>% 
-  window(end = c(2017, 12))
+  window(end = c(2018, 12))
 
 retails_elecronic_test = retails_elecronic %>% 
-  window(start = 2018)
+  window(start = 2019)
 
 retails_hobby_train = retails_hobby %>% 
-  window(end = c(2017, 12))
+  window(end = c(2018, 12))
 
 retails_hobby_test = retails_hobby %>% 
-  window(start = 2018)
+  window(start = 2019)
 
 retails_furniture_train = retails_furniture %>% 
-  window(end = c(2017, 12))
+  window(end = c(2018, 12))
 
 retails_furniture_test = retails_furniture %>% 
-  window(start = 2018)
+  window(start = 2019)
 ```
 
 
