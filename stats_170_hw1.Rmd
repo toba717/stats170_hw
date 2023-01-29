@@ -56,11 +56,12 @@ boxplot(Price_of_Houses_train ~ cycle(Price_of_Houses_train))
 ```{r variance}
 plot(Price_of_Houses_train)
 ```
-```{r}
+```{r }
+# This is saying that the data is not stationary
 acf(Price_of_Houses_train)
 ```
 
-```{r}
+```{r transformation can help stabilise the variance of time series}
 log_data = log(Price_of_Houses_train)
 
 quadratic_data = Price_of_Houses_train^2
@@ -72,7 +73,15 @@ plot(log_data, main = "log")
 plot(quadratic_data, main = "quadratic")
 plot(squared_data, main = "squared")
 ```
+```{r diffirence can help stabilise the mean of time series}
+lagged = diff(log_data)
+plot(lagged) # now it is a mean of zero and has a constant variance
+
+acf(lagged)
+```
+
+
 ```{r model}
-HoltWinters(Price_of_Houses_train, beta = FALSE, gamma = FALSE)
+HoltWinters(lagged, beta = FALSE, gamma = FALSE)
 ```
 
