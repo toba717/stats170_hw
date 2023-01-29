@@ -72,4 +72,7 @@ plot(log_data, main = "log")
 plot(quadratic_data, main = "quadratic")
 plot(squared_data, main = "squared")
 ```
+```{r model}
+HoltWinters(Price_of_Houses_train, beta = FALSE, gamma = FALSE)
+```
 
