@@ -13,16 +13,6 @@ Quandl.api_key("")
 ```
 
 
-```{r data}
-retails = Quandl(code="FRED/RSXFSN",
-            type="ts",
-            collapse="monthly",
-            meta=TRUE)
-
-# Do not include 2020 and 2021 years in your data
-retails = window(retails, end = c(2019, 12))
-```
-
 ```{r}
 retails_elecronic = Quandl(code="FRED/RSEASN",
             type="ts",
@@ -47,8 +37,20 @@ sum(is.na(retails_hobby))
 sum(is.na(retails_furniture))
 ```
 
+excluding data from 2020 and 2021
 ```{r}
+retails_elecronic = retails_elecronic %>% window(end = c(2019, 12))
+
+retails_hobby = retails_hobby %>% window(end = c(2019, 12))
+
+retails_furniture = retails_furniture %>% window(end = c(2019, 12))
 ```
+
+
+```{r}
+plot(retails_elecronic)
+```
+
 
 
 ```{r dygraph}
@@ -112,6 +114,8 @@ boxplot(retails_furniture_train ~ cycle(retails_furniture_train))
 
 ```
 
+# Acf
+To appropriately get the ACF, we need some transformation
 ```{r }
 acf(retails_electronic_train)
 acf(retails_hobby_train)
@@ -130,15 +134,38 @@ plot(retails_electronic_train_log, main = "log")
 plot(retails_electronic_train_quadratic, main = "quadratic")
 plot(retails_electronic_train_squared, main = "squared")
 ```
+
+ACF include the direct and indirect effect, and PACF only include the direct effect.
 ```{r diffirence can help stabilise the mean of time series}
-squared_data = diff(retails_electronic_train_squared)
-plot(squared_data) # now it is a mean of zero and has a constant variance
+log_data = diff(retails_electronic_train_log)
+plot(log_data) # now it is a mean of zero and has a constant variance
 
-acf(squared_data)
+acf(log_data)
+pacf(log_data)
 ```
 
-
+# smoothing
+Use the raw training dependent variable and fit to it an appropriate exponential smoothing model and forecast with it
 ```{r model}
-HoltWinters(squared_data, beta = FALSE, gamma = FALSE)
+# because electronic data has seasonality and trend, we use Seasonal exponential smoothing # plot(retails_electronic_train)
+
+hw_electronic = HoltWinters(retails_electronic_train, 
+                            seasonal = 'multiplicative')
+
+plot(hw_electronic)
 ```
 
+```{r}
+# plot(retails_hobby_train)
+# retails_hobby_train has a trend but no seasonality
+hw_hobby = HoltWinters(retails_hobby_train, gamma = FALSE)
+plot(hw_hobby)
+```
+
+```{r}
+# plot(retails_furniture_train)
+# retails_furniture_train has trend no seasonality
+
+hw_furniture = HoltWinters(retails_furniture_train, gamma = FALSE)
+plot(hw_furniture)
+```
