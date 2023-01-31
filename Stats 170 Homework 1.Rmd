@@ -1,0 +1,371 @@
+---
+title: "Stats 170 Homework 1"
+author: "Daniel Neufeldt"
+date: "1/29/2023"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(Quandl)
+library(dygraphs)
+Quandl.api_key("Rtc_Eon27jXhwyGeEfyr") 
+```
+
+Part 1
+
+```{r data}
+retail_electronic = Quandl(code="FRED/RSEASN",
+                 type="ts",
+                 collapse="monthly",
+                 meta=TRUE)
+# Do not include 2020 and 2021 years in your data
+electronic = window(retail_electronic, end = c(2019, 12))
+```
+
+```{r}
+sum(is.na(electronic))
+```
+
+```{r}
+retail_hobby = Quandl(code = "FRED/RSSGHBMSN",
+                      type = "ts",
+                      collapse = "monthly",
+                      meta = TRUE)
+hobby = window(retail_hobby, end = c(2019, 12))
+```
+
+```{r}
+sum(is.na(hobby))
+```
+
+```{r}
+retail_furniture = Quandl(code = "FRED/RSFHFSN",
+                          type = "ts",
+                          collapse = "monthly",
+                          meta = TRUE)
+furniture = window(retail_furniture, end = c(2019, 12))
+```
+
+```{r}
+start(electronic)
+start(hobby)
+start(furniture)
+```
+
+
+
+
+```{r dygraph electronics}
+electronic %>% 
+  dygraph() %>% 
+  dyRangeSelector
+```
+
+```{r dygraph hobby}
+hobby %>%
+  dygraph() %>%
+  dyRangeSelector %>%
+  
+```
+
+```{r}
+furniture %>%
+  dygraph(main = "") %>%
+  dyRangeSelector
+```
+
+```{r}
+
+```
+
+
+```{r}
+
+three <- cbind(electronic, hobby, furniture)
+
+a <- dygraph(three, main = "Dygraph of All Three Dependent Variables", ylab = "Sales in Millions of Dollars", xlab = "Year") %>%
+  dyRangeSelector() %>%
+  dyOptions(colors = RColorBrewer::brewer.pal(3, "Set2"))
+
+
+a
+```
+```{r}
+a.dygraph-title ({
+  color : black
+})
+  
+
+```
+
+
+Part 2
+
+```{r test data electronic}
+electronic_train = electronic %>% 
+  window(end = c(2018, 12))
+electronic_test = electronic %>% 
+  window(start = 2019)
+```
+
+```{r test data hobby}
+hobby_train = hobby %>% 
+  window(end = c(2018, 12))
+hobby_test = hobby %>% 
+  window(start = 2019)
+```
+
+```{r test data furniture}
+furniture_train = furniture %>% 
+  window(end = c(2018, 12))
+furniture_test = furniture %>% 
+  window(start = 2019)
+```
+
+Let's only look at electronics
+
+```{r}
+train <- electronic_train
+test <- electronic_test
+train
+```
+
+
+```{r decomposition}
+plot(decompose(train))
+plot(decompose(train, type = "mult"))
+```
+The random term looks more random in the multiplicative decomposition graph. This means that we should probably use multiplicative decomposition in our analysis.
+
+
+
+```{r seasonal boxplot}
+# there is no sasonal effect quarterly
+boxplot(train ~ cycle(train))
+```
+
+```{r variance}
+plot(train)
+```
+
+```{r}
+plot(decompose(hobby_train))
+plot(decompose(hobby_train, type = "mult"))
+
+plot(hobby_train)
+
+plot(decompose(furniture_train))
+plot(decompose(furniture_train, type = "mult"))
+
+plot(furniture_train)
+```
+
+
+Part 3
+
+```{r }
+# This is saying that the data is not stationary
+acf(train)
+```
+
+```{r transformation can help stabilise the variance of time series}
+log_data = log(train)
+quadratic_data = train^2
+squared_data = sqrt(train)
+par(mfrow = c(3, 1))
+plot(log_data, main = "log") 
+plot(quadratic_data, main = "quadratic")
+plot(squared_data, main = "squared")
+```
+
+```{r diffirence can help stabilise the mean of time series}
+lagged = diff(log_data)
+plot(lagged) # now it is a mean of zero and has a constant variance
+abline(h = 0, col = "red")
+
+plot(diff(squared_data))
+abline(h = 0, col = "red")
+
+acf(lagged)
+```
+
+```{r}
+par(mfrow = c(2, 1))
+acf(lagged)
+pacf(lagged)
+```
+
+Part IV
+
+```{r model electronic}
+electronic_smooth <- HoltWinters(electronic_train, seasonal = "multiplicative")
+plot(electronic_smooth, main = "Exponential Smoothing Model of Electronic Retail Sales", xlab = "Year", ylab = "Retail Sales (in Millions of Dollars")
+
+# because electronic data has seasonality and trend, we use Seasonal exponential smoothing 
+# plot(retails_electronic_train)
+
+```
+```{r}
+plot()
+```
+
+```{r model hobby}
+hobby_smooth <- HoltWinters(hobby_train, gamma = FALSE)
+plot(hobby_smooth)
+
+
+plot(hobby_train)
+# retails_hobby_train has a trend but no seasonality
+```
+
+```{r model furniture smooth}
+furniture_smooth <- HoltWinters(furniture_train, gamma = FALSE)
+plot(furniture_smooth)
+
+```
+
+```{r forecasting}
+electronic_pred <- predict(electronic_smooth, n.ahead = 12)
+electronic_pred
+
+
+plot(electronic_smooth, electronic_pred, main = "Exponential Smoothing of Electronic Retail Sales With Forecasting",
+     xlab = "Year", ylab = "Retail Sales (in Millions of Dollars)")
+lines(test, col = "blue", lty = 2)
+
+
+```
+```{r}
+
+par(mfrow = c(1, 2))
+plot(electronic_pred, main = "Actual (black) Vs Predicted\n (red) Retail Sales in 2019", xlab = "Time (in years)", ylab = "Retail Sales (in millions of dollars")
+lines(test, col = "red", lty = 2)
+
+residual = as.numeric(test) - as.numeric(electronic_pred)
+plot(residual, main = "Residuals of Predicted\n Retail Sales in 2019", xlab = "Time (in years)", ylab = "Residuals (in millions of dollars")
+abline(h = 0, col = "red")
+```
+
+```{r}
+residual = as.numeric(test) - as.numeric(electronic_pred)
+plot(residual, main = "Residuals of Predicted Retail Sales in 2019", xlab = "Time (in years)", ylab = "Residuals (in millions of dollars")
+abline(h = 0, col = "red")
+```
+
+```{r forecasting hobby}
+
+h_pred <- predict(hobby_smooth, n.ahead = 12)
+h_pred
+
+plot(hobby_smooth, h_pred)
+lines(hobby_test)
+
+```
+Part V Polynomial Regression
+
+```{r}
+time(train)
+```
+
+
+
+```{r}
+data = c(3.3602,-3.1769,0.3484,7.469,4.4963,-0.4621,
+0.7218,6.9484,5.2374,2.9242,4.7006,11.2793,5.1637,
+1.5441,12.121,9.6588,8.0922,3.9653,11.4177,13.2088)
+y=data
+n=length(y) 
+time=seq(1:length(y))
+That=lm(y~time)
+summary(That)
+plot(time,y)
+lines(time,y)
+## regression model with a simple dummy variable for the quarters. 
+q1=rep(c(1,0,0,0),n/4)
+q2= rep(c(0,1,0,0),n/4)
+q3=rep(c(0,0,1,0),n/4)
+q4=rep(c(0,0,0,1),n/4)
+regmodel = lm(y~time+q2+q3+q4)
+summary(regmodel)
+yhat=fitted(regmodel)
+forecast=c(rep(0,4))
+for(j in 1:4){
+forecast[j] = 1.09903+0.46344*(20+j)-4.77448*q2[j]-0.33493*q3[j]+3.05259*q4[j]
+}
+```
+
+```{r}
+decompose(train)$seasona
+```
+
+
+```{r}
+time(train)
+time=seq(1:length(train))
+time
+as.numeric(train)
+y = as.numeric(train)
+n = length(y) 
+time = seq(1:length(y))
+That=lm(y~time)
+summary(That)
+plot(time,y)
+lines(time,y)
+## regression model with a simple dummy variable for the quarters. 
+m1=rep(c(1,0,0,0,0,0,0,0,0,0,0,0),n/12)
+m2=rep(c(0,1,0,0,0,0,0,0,0,0,0,0),n/12)
+m3=rep(c(0,0,1,0,0,0,0,0,0,0,0,0),n/12)
+m4=rep(c(0,0,0,1,0,0,0,0,0,0,0,0),n/12)
+m5=rep(c(0,0,0,0,1,0,0,0,0,0,0,0),n/12)
+m6=rep(c(0,0,0,0,0,1,0,0,0,0,0,0),n/12)
+m7=rep(c(0,0,0,0,0,0,1,0,0,0,0,0),n/12)
+m8=rep(c(0,0,0,0,0,0,0,1,0,0,0,0),n/12)
+m9=rep(c(0,0,0,0,0,0,0,0,1,0,0,0),n/12)
+m10=rep(c(0,0,0,0,0,0,0,0,0,1,0,0),n/12)
+m11=rep(c(0,0,0,0,0,0,0,0,0,0,1,0),n/12)
+m12=rep(c(0,0,0,0,0,0,0,0,0,0,0,1),n/12)
+regmodel = lm(y~time+m2+m3+m4+m5+m6+m7+m8+m9+m10+m11+m12)
+summary(regmodel)
+yhat=fitted(regmodel)
+forecast=c(rep(0,12))
+for(j in 1:12){
+  forecast[j] = 5360.8659+10.6215*(324+j)-203.4363*m2[j]+87.9051*m3[j]-581.9016*m4[j]-171.3009*m5[j]-31.9965*m6[j]+13.7153*m7[j]+350.5012*m8[j]-112.4536*m9[j]
+-145.6307*m10[j]+1574.4885*m11[j]+5020.1263*m12[j]
+}
+plot(c(time,325,326,327,328,329,330,331,332,333,334,335,336),c(y,forecast), lty=1,col="black",type="l", xlab="Time", ylab="y", 
+main="data+forecast with poly trend plus dummies
+\n in black and 
+fitted in-sample in red")
+abline(v=324, col = 'blue', lty=2)
+lines(time,yhat,col="red",lty=2)
+quad_model = lm(y~poly(time, 2)+m2+m3+m4+m5+m6+m7+m8+m9+m10+m11+m12)
+summary(quad_model)
+yhat=fitted(quad_model)
+forecast=c(rep(0,12))
+for(j in 1:12){
+forecast[j] = 5360.8659+10.6215*(324+j)-203.4363*m2[j]+87.9051*m3[j]-581.9016*m4[j]-171.3009*m5[j]-31.9965*m6[j]+13.7153*m7[j]+350.5012*m8[j]-112.4536*m9[j]
+-145.6307*m10[j]+1574.4885*m11[j]+5020.1263*m12[j]
+}
+plot(c(time,325,326,327,328,329,330,331,332,333,334,335,336),c(y,forecast), lty=1,col="black",type="l", xlab="Time", ylab="y", 
+main="data+forecast with poly trend plus dummies
+\n in black and 
+fitted in-sample in red")
+abline(v=324, col = 'blue', lty=2)
+lines(time,yhat,col="red",lty=2)
+```
+
+
+```{r}
+mse = (1/12) * sum((electronic_pred - test)^2)
+rmse = sqrt(mse)
+rmse
+```
+
+
+
+
+
