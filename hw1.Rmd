@@ -1,0 +1,168 @@
+---
+title: "stats170"
+author: "Takao Oba"
+date: "2023-01-26"
+output: html_document
+---
+
+
+```{r}
+library(Quandl)
+library(dygraphs)
+Quandl.api_key("uSPQnqK5PuPzTydvoB_R") 
+```
+
+```{r}
+retails_elecronic = Quandl(code="FRED/RSEASN",
+            type="ts",
+            collapse="monthly",
+            meta=TRUE)
+retails_hobby = Quandl(code="FRED/RSSGHBMS",
+            type="ts",
+            collapse="monthly",
+            meta=TRUE)
+retails_furniture = Quandl(code="FRED/RSFHFS",
+            type="ts",
+            collapse="monthly",
+            meta=TRUE)
+```
+
+
+```{r}
+sum(is.na(retails_elecronic))
+sum(is.na(retails_hobby))
+sum(is.na(retails_furniture))
+```
+
+excluding data from 2020 and 2021
+```{r}
+retails_elecronic = retails_elecronic %>% window(end = c(2019, 12))
+retails_hobby = retails_hobby %>% window(end = c(2019, 12))
+retails_furniture = retails_furniture %>% window(end = c(2019, 12))
+```
+
+
+```{r}
+plot(retails_elecronic)
+```
+
+
+
+```{r dygraph}
+retails_elecronic %>% 
+  dygraph() %>% 
+  dyRangeSelector
+retails_hobby %>% 
+  dygraph() %>% 
+  dyRangeSelector
+retails_furniture %>% 
+  dygraph() %>% 
+  dyRangeSelector()
+```
+
+```{r test data}
+retails_electronic_train = retails_elecronic %>% 
+  window(end = c(2018, 12))
+retails_elecronic_test = retails_elecronic %>% 
+  window(start = 2019)
+retails_hobby_train = retails_hobby %>% 
+  window(end = c(2018, 12))
+retails_hobby_test = retails_hobby %>% 
+  window(start = 2019)
+retails_furniture_train = retails_furniture %>% 
+  window(end = c(2018, 12))
+retails_furniture_test = retails_furniture %>% 
+  window(start = 2019)
+```
+
+
+```{r decomposition additive}
+plot(decompose(retails_electronic_train))
+plot(decompose(retails_hobby_train))
+plot(decompose(retails_furniture_train))
+```
+
+```{r decomposition mult}
+plot(decompose(retails_electronic_train, type = "mult"))
+plot(decompose(retails_hobby_train, type = "mult"))
+plot(decompose(retails_furniture_train, type = "mult"))
+```
+
+
+```{r seasonal boxplot}
+boxplot(retails_electronic_train ~ cycle(retails_electronic_train))
+boxplot(retails_hobby_train ~ cycle(retails_hobby_train))
+boxplot(retails_furniture_train ~ cycle(retails_furniture_train))
+```
+
+# Acf
+To appropriately get the ACF, we need some transformation
+```{r }
+acf(retails_electronic_train)
+acf(retails_hobby_train)
+acf(retails_furniture_train)
+```
+
+```{r transformation can help stabilise the variance of time series}
+retails_electronic_train_log = log(retails_electronic_train)
+retails_electronic_train_quadratic = retails_electronic_train^2
+retails_electronic_train_squared = sqrt(retails_electronic_train)
+par(mfrow = c(3, 1))
+plot(retails_electronic_train_log, main = "log") 
+plot(retails_electronic_train_quadratic, main = "quadratic")
+plot(retails_electronic_train_squared, main = "squared")
+```
+
+ACF include the direct and indirect effect, and PACF only include the direct effect.
+```{r diffirence can help stabilise the mean of time series}
+log_data = diff(retails_electronic_train_log) # mean is centered around zero
+plot(log_data) # now it is a mean of zero and has a constant variance
+acf(log_data)
+pacf(log_data) # partial autocorrelation
+```
+
+# smoothing
+Use the raw training dependent variable and fit to it an appropriate exponential smoothing model and forecast with it
+```{r model}
+# because electronic data has seasonality and trend, we use Seasonal exponential smoothing # plot(retails_electronic_train)
+hw_electronic = HoltWinters(retails_electronic_train, 
+                            seasonal = 'multiplicative')
+plot(hw_electronic)
+```
+
+```{r}
+preditc_electronic = predict(hw_electronic, n.ahead = 12)
+plot(hw_electronic, preditc_electronic)
+length(retails_elecronic_test)
+
+lines(retails_elecronic_test, col = "yellow", lty = 10)
+```
+
+
+
+```{r}
+# plot(retails_hobby_train)
+# retails_hobby_train has a trend but no seasonality
+hw_hobby = HoltWinters(retails_hobby_train, gamma = FALSE)
+plot(hw_hobby)
+```
+
+```{r}
+preditc_hobby = predict(hw_hobby, n.ahead = 12)
+plot(hw_hobby, preditc_hobby)
+```
+
+
+
+```{r}
+# plot(retails_furniture_train)
+# retails_furniture_train has trend no seasonality
+hw_furniture = HoltWinters(retails_furniture_train, gamma = FALSE)
+plot(hw_furniture)
+```
+
+```{r}
+preditc_furniture = predict(hw_furniture, n.ahead = 20)
+plot(hw_furniture, preditc_furniture)
+lines(retails_furniture_test, col = "blue")
+```
