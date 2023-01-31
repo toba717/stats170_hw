@@ -1,0 +1,268 @@
+---
+title: "Stats 170 Homework 1"
+output: html_document
+date: "2023-01-29"
+---
+
+I. Introduction
+
+
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(Quandl)
+library(dygraphs)
+Quandl.api_key("exPTFDshn2rPtEkYVey3") 
+```
+
+
+```{r data}
+retail_electronic = Quandl(code="FRED/RSEASN",
+                 type="ts",
+                 collapse="monthly",
+                 meta=TRUE)
+# Do not include 2020 and 2021 years in your data
+electronic = window(retail_electronic, end = c(2019, 12))
+```
+
+```{r}
+sum(is.na(electronic))
+```
+
+```{r}
+retail_hobby = Quandl(code = "FRED/RSSGHBMSN",
+                      type = "ts",
+                      collapse = "monthly",
+                      meta = TRUE)
+hobby = window(retail_hobby, end = c(2019, 12))
+```
+
+```{r}
+sum(is.na(hobby))
+```
+
+```{r}
+retail_furniture = Quandl(code = "FRED/RSFHFSN",
+                          type = "ts",
+                          collapse = "monthly",
+                          meta = TRUE)
+furniture = window(retail_furniture, end = c(2019, 12))
+```
+
+```{r}
+start(electronic)
+start(hobby)
+start(furniture)
+```
+
+
+
+
+```{r dygraph electronics}
+electronic %>% 
+  dygraph() %>% 
+  dyRangeSelector
+```
+
+```{r dygraph hobby}
+hobby %>% 
+  dygraph() %>% 
+  dyRangeSelector
+```
+
+```{r dygraph furniture}
+furniture %>% 
+  dygraph() %>% 
+  dyRangeSelector
+```
+
+``` {r multiple Time Series plot}
+retail_sales <- cbind(electronic, hobby, furniture)
+dygraph(retail_sales, main = "Retail Sales") %>%
+  dyOptions(colors = RColorBrewer::brewer.pal(3, "Set2"))
+```
+
+```{r train & test data}
+retails_electronic_train = electronic %>% 
+  window(end = c(2018, 12))
+retails_elecronic_test = electronic %>% 
+  window(start = 2019)
+retails_hobby_train = hobby %>% 
+  window(end = c(2018, 12))
+retails_hobby_test = hobby %>% 
+  window(start = 2019)
+retails_furniture_train = furniture %>% 
+  window(end = c(2018, 12))
+retails_furniture_test = furniture %>% 
+  window(start = 2019)
+```
+
+```{r decomposition additive}
+plot(decompose(retails_electronic_train))
+```
+
+```{r decomposition mult}
+plot(decompose(retails_electronic_train, type = "mult"))
+```
+
+```{r seasonal boxplot}
+boxplot(retails_electronic_train ~ cycle(retails_electronic_train))
+```
+
+```{r }
+acf(retails_electronic_train)
+```
+
+```{r transformation can help stabilise the variance of time series}
+retails_electronic_train_log = log(retails_electronic_train)
+retails_electronic_train_quadratic = retails_electronic_train^2
+retails_electronic_train_squared = sqrt(retails_electronic_train)
+```
+
+``` {r transformation plots 1}
+plot(retails_electronic_train_log, main = "log") 
+```
+
+``` {r transformation plots 2}
+plot(retails_electronic_train_quadratic, main = "quadratic") 
+```
+
+``` {r transformation plots 3}
+plot(retails_electronic_train_squared, main = "squared") 
+```
+
+```{r difference can help stabilise the mean of time series}
+squared_data = diff(retails_electronic_train_squared)
+plot(squared_data) # now it is a mean of zero and has a constant variance
+abline(h = 0, col = 'red')
+acf(squared_data)
+```
+
+```{r difference can help stabilise the mean of time series}
+log_data = diff(retails_electronic_train_log)
+plot(log_data) # now it is a mean of zero and has a constant variance
+abline(h = 0, col = 'red')
+acf(log_data)
+```
+
+```{r model}
+HoltWinters(log_data, beta = FALSE, gamma = FALSE)
+```
+
+``` {r PACF}
+par(mfrow=c(2,1))
+acf(log_data)
+pacf(log_data)
+```
+
+# smoothing
+Use the raw training dependent variable and fit to it an appropriate exponential smoothing model and forecast with it
+```{r model}
+# because electronic data has seasonality and trend, we use Seasonal exponential smoothing # plot(retails_electronic_train)
+hw_electronic = HoltWinters(retails_electronic_train, 
+                            seasonal = 'multiplicative')
+plot(hw_electronic)
+```
+
+```{r}
+preditc_electronic = predict(hw_electronic, n.ahead = 12)
+plot(hw_electronic, preditc_electronic)
+length(retails_elecronic_test)
+```
+
+
+
+```{r}
+# plot(retails_hobby_train)
+# retails_hobby_train has a trend but no seasonality
+hw_hobby = HoltWinters(retails_hobby_train, gamma = FALSE)
+plot(hw_hobby)
+```
+
+```{r}
+preditc_hobby = predict(hw_hobby, n.ahead = 12)
+plot(hw_hobby, preditc_hobby)
+```
+
+
+
+```{r}
+# plot(retails_furniture_train)
+# retails_furniture_train has trend no seasonality
+hw_furniture = HoltWinters(retails_furniture_train, gamma = FALSE)
+plot(hw_furniture)
+```
+
+```{r}
+preditc_furniture = predict(hw_furniture, n.ahead = 12)
+plot(hw_furniture, preditc_furniture)
+```
+
+``` {r}
+time(retails_electronic_train)
+
+time=seq(1:length(retails_electronic_train))
+time
+
+as.numeric(retails_electronic_train)
+
+y = as.numeric(retails_electronic_train)
+n = length(y) 
+time = seq(1:length(y))
+
+That=lm(y~time)
+summary(That)
+plot(time,y)
+lines(time,y)
+## regression model with a simple dummy variable for the quarters. 
+m1=rep(c(1,0,0,0,0,0,0,0,0,0,0,0),n/12)
+m2=rep(c(0,1,0,0,0,0,0,0,0,0,0,0),n/12)
+m3=rep(c(0,0,1,0,0,0,0,0,0,0,0,0),n/12)
+m4=rep(c(0,0,0,1,0,0,0,0,0,0,0,0),n/12)
+m5=rep(c(0,0,0,0,1,0,0,0,0,0,0,0),n/12)
+m6=rep(c(0,0,0,0,0,1,0,0,0,0,0,0),n/12)
+m7=rep(c(0,0,0,0,0,0,1,0,0,0,0,0),n/12)
+m8=rep(c(0,0,0,0,0,0,0,1,0,0,0,0),n/12)
+m9=rep(c(0,0,0,0,0,0,0,0,1,0,0,0),n/12)
+m10=rep(c(0,0,0,0,0,0,0,0,0,1,0,0),n/12)
+m11=rep(c(0,0,0,0,0,0,0,0,0,0,1,0),n/12)
+m12=rep(c(0,0,0,0,0,0,0,0,0,0,0,1),n/12)
+
+regmodel = lm(y~time+m2+m3+m4+m5+m6+m7+m8+m9+m10+m11+m12)
+summary(regmodel)
+yhat=fitted(regmodel)
+forecast=c(rep(0,12))
+for(j in 1:12){
+forecast[j] = 5360.8659+10.6215*(324+j)-203.4363*m2[j]+87.9051*m3[j]-581.9016*m4[j]-171.3009*m5[j]-31.9965*m6[j]+13.7153*m7[j]+350.5012*m8[j]-112.4536*m9[j]
+-145.6307*m10[j]+1574.4885*m11[j]+5020.1263*m12[j]
+}
+
+plot(c(time,325,326,327,328,329,330,331,332,333,334,335,336),c(y,forecast), lty=1,col="black",type="l", xlab="Time", ylab="y", 
+main="data+forecast with poly trend plus dummies
+\n in black and 
+fitted in-sample in red")
+abline(v=324, col = 'blue', lty=2)
+lines(time,yhat,col="red",lty=2)
+
+
+quad_model = lm(y~time+poly(time, 2)+m2+m3+m4+m5+m6+m7+m8+m9+m10+m11+m12)
+summary(quad_model)
+yhat=fitted(quad_model)
+forecast=c(rep(0,12))
+for(j in 1:12){
+forecast[j] = 5360.8659+10.6215*(324+j)-203.4363*m2[j]+87.9051*m3[j]-581.9016*m4[j]-171.3009*m5[j]-31.9965*m6[j]+13.7153*m7[j]+350.5012*m8[j]-112.4536*m9[j]
+-145.6307*m10[j]+1574.4885*m11[j]+5020.1263*m12[j]
+}
+
+plot(c(time,325,326,327,328,329,330,331,332,333,334,335,336),c(y,forecast), lty=1,col="black",type="l", xlab="Time", ylab="y", 
+main="data+forecast with poly trend plus dummies
+\n in black and 
+fitted in-sample in red")
+abline(v=324, col = 'blue', lty=2)
+lines(time,yhat,col="red",lty=2)
+```
+
