@@ -1,14 +1,8 @@
-######################
-# Anish Dulla, Daniel Neufeldt, Takao Oba, Shochiiro Ueno
-# Homework 1
-# January 30, 2023
-######################
 
 ### I. Introduction
-
 library(Quandl)
 library(dygraphs)
-Quandl.api_key("exPTFDshn2rPtEkYVey3") 
+Quandl.api_key("uSPQnqK5PuPzTydvoB_R") 
 
 retail_electronic = Quandl(code="FRED/RSEASN",type="ts", collapse="monthly", meta=TRUE)
 # Do not include 2020 and 2021 years in our data
@@ -35,8 +29,8 @@ retails_electronic_train = electronic %>%
 retails_elecronic_test = electronic %>% 
   window(start = 2019)
 
-### II. Components Features of the dependent variable
 
+### II. Components Features of the dependent variable
 add_decomp_plot <- plot(decompose(retails_electronic_train, type='add')) 
 mult_decomp_plot <- decompose(retails_electronic_train, type = "mult")
 add_decomp_plot
@@ -45,7 +39,6 @@ mult_decomp_plot$seasonal
 boxplot_elec <- boxplot(retails_electronic_train ~ cycle(retails_electronic_train))
 
 ## III. 
-
 acf(retails_electronic_train)
 
 retails_electronic_train_log = log(retails_electronic_train)
@@ -76,7 +69,6 @@ acf(seasonal_diff, main = 'seasonal')
 plot(seasonal_diff)
 
 ## IV.
-
 electronic_smooth <- HoltWinters(retails_electronic_train, seasonal = "multiplicative")
 plot(electronic_smooth, main = "Exponential Smoothing Model of Electronic Retail Sales", xlab = "Year", ylab = "Retail Sales (in Millions of Dollars")
 
@@ -96,7 +88,6 @@ plot(residual, main = "Residuals of Predicted\n Retail Sales in 2019", xlab = "T
 abline(h = 0, col = "red")
 
 ## V.
-
 df = data.frame(as.numeric(time(retails_electronic_train)))
 
 df$values = as.numeric(retails_electronic_train)
@@ -110,10 +101,8 @@ summary(quad_model)
 testTimeRE <- data.frame(as.numeric(time(retails_elecronic_test)))
 colnames(testTimeRE)[1] <- "retail_electronics_train"
 predictions <- predict(quad_model, newdata=testTimeRE)
-seasonals <- as.numeric(mult_decomp$seasonal)[1:12]
+seasonals <- as.numeric(mult_decomp_plot$seasonal)[1:12]
 total_predict <- predictions * seasonals
 quad_predict <- ts(total_predict)
 
 quad_predict
-
-
