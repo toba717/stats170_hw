@@ -46,13 +46,9 @@ retails_hobby = retails_hobby %>% window(end = c(2019, 12))
 retails_furniture = retails_furniture %>% window(end = c(2019, 12))
 ```
 
+Electronic data has a trend and increasing seasonality, so the multiplicative decomposition looks like the first choice.
 
-```{r}
-plot(retails_elecronic)
-```
-
-
-
+hobby and furniture data has a trend but no apparent seasonality.
 ```{r dygraph}
 retails_elecronic %>% 
   dygraph() %>% 
@@ -87,24 +83,21 @@ retails_furniture_test = retails_furniture %>%
   window(start = 2019)
 ```
 
+# decomposition
+Comparing the random term between the additive and multiplicative of the electronic data, the one with multiplicative looks more random whereas the additive one still reflects some cyclical pattern.
 
-```{r decomposition additive}
-plot(decompose(retails_electronic_train))
-
-plot(decompose(retails_hobby_train))
-
-plot(decompose(retails_furniture_train))
-```
-
-```{r decomposition mult}
+```{r }
+plot(decompose(retails_electronic_train)) 
 plot(decompose(retails_electronic_train, type = "mult"))
-
-plot(decompose(retails_hobby_train, type = "mult"))
-
-plot(decompose(retails_furniture_train, type = "mult"))
 ```
 
+hobby and furniture data do not have a seasonality but have an increasing trend.
+```{r}
+plot(decompose(retails_hobby_train)) 
+plot(decompose(retails_furniture_train)) 
+```
 
+Seasonal box-plot also supports that electronic data has seasonality and the hobby and furniture data has no seasonality.
 ```{r seasonal boxplot}
 boxplot(retails_electronic_train ~ cycle(retails_electronic_train))
 
@@ -115,7 +108,8 @@ boxplot(retails_furniture_train ~ cycle(retails_furniture_train))
 ```
 
 # Acf
-To appropriately get the ACF, we need some transformation
+To appropriately get the ACF, we need some transformation.
+If we apply it to raw data, every lag is significant.
 ```{r }
 acf(retails_electronic_train)
 acf(retails_hobby_train)
@@ -156,11 +150,27 @@ plot(hw_electronic)
 ```
 
 ```{r}
+preditc_electronic = predict(hw_electronic, n.ahead = 12)
+plot(hw_electronic, preditc_electronic)
+length(retails_elecronic_test)
+```
+
+
+
+```{r}
 # plot(retails_hobby_train)
 # retails_hobby_train has a trend but no seasonality
 hw_hobby = HoltWinters(retails_hobby_train, gamma = FALSE)
 plot(hw_hobby)
 ```
+
+```{r}
+preditc_hobby = predict(hw_hobby, n.ahead = 12)
+
+plot(hw_hobby, preditc_hobby)
+```
+
+
 
 ```{r}
 # plot(retails_furniture_train)
@@ -169,3 +179,10 @@ plot(hw_hobby)
 hw_furniture = HoltWinters(retails_furniture_train, gamma = FALSE)
 plot(hw_furniture)
 ```
+
+```{r}
+preditc_furniture = predict(hw_furniture, n.ahead = 12)
+
+plot(hw_furniture, preditc_furniture)
+```
+
