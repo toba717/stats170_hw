@@ -89,15 +89,18 @@ electronic_pred
 
 plot(electronic_smooth)
 
+dev.off()
+
 plot(electronic_smooth, electronic_pred, main = "Exponential Smoothing of Electronic Retail Sales With Forecasting",
      xlab = "Year", ylab = "Retail Sales (in Millions of Dollars)")
 lines(retails_elecronic_test, col = "blue", lty = 2)
+legend(1993, 15900, legend = c("Electronic Retail Sales (Train)", "Electronic Retail Sales (Test)", "Fitted Exp. Smoothing"), col = c("black", "blue", "red"), lty = c(1, 2, 1), cex = 0.6)
 
 
 par(mfrow = c(1, 2))
-plot(electronic_pred, main = "Exponential Smoothing\n Forecast vs Retail \nElectronic Sales", xlab = "Time (2019)", ylab = "Retail Sales (in millions of dollars)")
+plot(electronic_pred, main = "Exponential Smoothing\n Forecast vs Retail \nElectronic Sales", xlab = "Time (2019)", ylab = "Retail Sales (in millions of dollars)", col = "red")
 lines(retails_elecronic_test, col = "blue", lty = 2)
-legend(2019, 10900, legend = c("Electronic Retail Sales", "Fitted Exp. Smoothing") , col = c("blue", "black"), lty = 2:1, cex = 0.6)
+legend(2019, 10900, legend = c("Electronic Retail Sales", "Fitted Exp. Smoothing") , col = c("blue", "red"), lty = 2:1, cex = 0.6)
 
 residual = as.numeric(retails_elecronic_test) - as.numeric(electronic_pred)
 plot(residual, main = "Residuals of Exponential\n Smoothing Forecast", xlab = "Time (in months) -- 2019", ylab = "Residuals (in millions of dollars)")
