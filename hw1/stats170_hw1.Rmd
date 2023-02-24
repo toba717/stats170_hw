@@ -16,7 +16,7 @@ knitr::opts_chunk$set(echo = TRUE)
 ```{r}
 library(Quandl)
 library(dygraphs)
-Quandl.api_key("exPTFDshn2rPtEkYVey3") 
+Quandl.api_key("") 
 ```
 
 
