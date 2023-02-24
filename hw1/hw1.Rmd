@@ -9,7 +9,7 @@ output: html_document
 ```{r}
 library(Quandl)
 library(dygraphs)
-Quandl.api_key("uSPQnqK5PuPzTydvoB_R") 
+Quandl.api_key("") 
 ```
 
 ```{r}
