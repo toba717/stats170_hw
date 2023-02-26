@@ -165,4 +165,48 @@ RMSE_exp_smooth <- sqrt(mean((retails_elecronic_test - electronic_pred)^2))
 average_forecast <- (total_predictions_quad + electronic_pred) / 2
 average_RMSE <- mean(c(RMSE_exp_smooth, RMSE_quad))
 
+### VII. ARIMA modeling and forecasting
+
+par(mfrow=c(3, 1))
+plot(electronic ^ (1/2), main = "Sqrt Transformation of Electronic Retail Sales",
+     xlab = "Time (in years)", ylab = "Sales (in millions)")
+plot(electronic ^ (1/4), main = "Quartic Transformation of Electronic Retail Sales",
+     xlab = "Time (in years)", ylab = "Sales (in millions)")
+plot(log(electronic), main = "Log Transformation of Electronic Retail Sales",
+     xlab = "Time (in years)", ylab = "Sales (in millions)")
+
+y.star <- log(electronic)
+
+reg_diff_y.star <- diff(y.star, lag = 1, differences = 1)
+seasonal_diff_y.star <- diff(y.star, lag = 12, differences = 1)
+reg_seasonal_diff_y.star <- diff(reg_diff_y.star, lag = 12)
+
+par(mfrow=c(3, 1))
+acf(reg_diff_y.star, lag = 50, main = "ACF - Regular Differencing: Electronic Retail Sales")
+acf(seasonal_diff_y.star, lag = 50, main = "ACF - Seasonal Differencing: Electronic Retail Sales")
+acf(reg_seasonal_diff_y.star, lag = 50, main = "ACF - Regular and Seasonal Differencing: Electronic Retail Sales")
+
+par(mfrow=c(3, 1))
+pacf(reg_diff_y.star, lag = 50, main = "PACF - Regular Differencing: Electronic Retail Sales")
+pacf(seasonal_diff_y.star, lag = 50, main = "PACF - Seasonal Differencing: Electronic Retail Sales")
+pacf(reg_seasonal_diff_y.star, lag = 50, main = "PACF - Regular and Seasonal Differencing: Electronic Retail Sales")
+
+y.star.star <- reg_seasonal_diff_y.star
+
+library("forecast")
+auto.arima(y.star)
+ARIMA(0,1,1)(1,1,1)[12]
+
+electronic_arima <- arima(y.star, order = c(0, 1, 1), seas = list(order = c(1, 1, 1), 12))
+
+acf(electronic_arima$residuals, lag = 50, main = "ACF - Residuals of ARIMA Model: Electronic Retail Sales")
+
+
+Box.test(electronic_arima$residuals, lag = 12, type="Ljung") # lag ? 12 or 20
+
+electronic_arima
+
+
+
+
 
