@@ -92,20 +92,29 @@ mult_decomp_seasonal_term <- mult_decomp$seasonal
 regression_df <- data.frame(as.numeric(time(retails_electronic_train)))
 regression_df$electronic_sales <- as.numeric(retails_electronic_train)
 colnames(regression_df)[1] <- "time"
+regression_df$time2 <- regression_df$time ^ 2
+regression_df$time3 <- regression_df$time ^ 3
 
 head(regression_df)
 
-quad_model <- lm(electronic_sales ~ poly(time, 2), data = regression_df)
-cubic_model <- lm(electronic_sales ~ poly(time, 3), data = regression_df)
+quad_model <- lm(electronic_sales ~ time + time2, data = regression_df)
+cubic_model <- lm(electronic_sales ~ time + time2 + time3, data = regression_df)
 
-quad_model_fit <- as.numeric(predict(quad_model, data = regression_df$time))
-cubic_model_fit <- as.numeric(predict(cubic_model, data = regression_df$time))
+# just calls time in data section
+quad_model_fit <- as.numeric(predict(quad_model, data = regression_df))
+cubic_model_fit <- as.numeric(predict(cubic_model, data = regression_df))
+
+#-60585143 + (60297 * 1992) - (15 * 3968064)
+
+#predict: 3992.539, actual: 3657
 
 quad_residuals <- as.numeric(retails_electronic_train) - quad_model_fit
 cubic_residuals <- as.numeric(retails_electronic_train) - cubic_model_fit
 
 scaled_quad_residuals <- scale(quad_residuals)
 scaled_cubic_residuals <- scale(cubic_residuals)
+
+par(mfrow=c(2,1))
 
 plot(ts(scaled_quad_residuals), main = "Scaled Residual Plot - Quadratic Model", ylab = "Standarized Residuals", xlab = "Time (in months)")
 abline(h = 0, col = "red")
@@ -115,6 +124,9 @@ abline(h = 0, col = "red")
 
 testTimeRE <- data.frame(as.numeric(time(retails_elecronic_test)))
 colnames(testTimeRE)[1] <- "time"
+testTimeRE$time2 <- testTimeRE$time ^ 2
+testTimeRE$time3 <- testTimeRE$time ^ 3
+
 predictions_quad <- predict(quad_model, newdata=testTimeRE)
 predictions_cubic <- predict(cubic_model, newdata=testTimeRE)
 
@@ -135,12 +147,34 @@ min(RMSE_quad, RMSE_cubic) #RMSE_cubic is smaller
 
 ### VI. Conclusion
 
-electronic_pred
 RMSE_exp_smooth <- sqrt(mean((retails_elecronic_test - electronic_pred)^2))
-
-
-total_predictions_cubic
-RMSE_cubic
 
 mean(c(RMSE_exp_smooth, RMSE_cubic))
 
+### VII. ARIMA modeling and forecasting
+
+par(mfrow=c(3, 1))
+plot(electronic ^ (1/2), main = "Sqrt Transformation of Electronic Retail Sales",
+     xlab = "Time (in years)", ylab = "Sales (in millions)")
+plot(electronic ^ (1/4), main = "Quartic Transformation of Electronic Retail Sales",
+     xlab = "Time (in years)", ylab = "Sales (in millions)")
+plot(log(electronic), main = "Log Transformation of Electronic Retail Sales",
+     xlab = "Time (in years)", ylab = "Sales (in millions)")
+
+y.star <- log(electronic)
+
+reg_diff_y.star <- diff(y.star, lag = 1, differences = 1)
+seasonal_diff_y.star <- diff(y.star, lag = 12, differences = 1)
+reg_seasonal_diff_y.star <- diff(reg_diff_y.star, lag = 12)
+
+par(mfrow=c(3, 1))
+acf(reg_diff_y.star, lag = 50, main = "ACF - Regular Differencing: Electronic Retail Sales")
+acf(seasonal_diff_y.star, lag = 50, main = "ACF - Seasonal Differencing: Electronic Retail Sales")
+acf(reg_seasonal_diff_y.star, lag = 50, main = "ACF - Regular and Seasonal Differencing: Electronic Retail Sales")
+
+par(mfrow=c(3, 1))
+pacf(reg_diff_y.star, lag = 50, main = "PACF - Regular Differencing: Electronic Retail Sales")
+pacf(seasonal_diff_y.star, lag = 50, main = "PACF - Seasonal Differencing: Electronic Retail Sales")
+pacf(reg_seasonal_diff_y.star, lag = 50, main = "PACF - Regular and Seasonal Differencing: Electronic Retail Sales")
+
+y.star.star <- reg_seasonal_diff_y.star
