@@ -1,7 +1,7 @@
 ### I. Introduction
 library(Quandl)
 library(dygraphs)
-Quandl.api_key("Rtc_Eon27jXhwyGeEfyr")
+Quandl.api_key("")
 
 
 
