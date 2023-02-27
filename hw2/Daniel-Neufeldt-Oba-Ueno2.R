@@ -279,3 +279,23 @@ legend(x=1993.12, y=15000, lty=c(1,1,3),
 
 RMSE_ARIMA <- sqrt(mean((df.forecast$retails_electronic_test - df.forecast$exp.forecast.value)^2))
 RMSE_ARIMA
+
+### VIII. Multiple regression with ARMA residuals
+
+retails_hobby_train = hobby %>% 
+  window(end = c(2018, 12))
+
+retails_furniture_train = furniture %>% 
+  window(end = c(2018, 12))
+
+x1 <- retails_hobby_train
+x2 <- retails_furniture_train
+
+mlr_residuals <- lm(y ~ x1 + x2)$residuals # change name
+
+par(mfrow = c(2,1))
+acf(mlr_residuals)
+pacf(mlr_residuals)
+
+
+
