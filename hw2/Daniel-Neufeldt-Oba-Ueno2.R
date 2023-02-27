@@ -179,18 +179,24 @@ plot(log(y), main = "Log Transformation of Electronic Retail Sales",
 
 y.star <- log(y)
 
+par(mfrow = c(2,1))
+acf(y.star, lag = 50, main = "ACF of Electronic Retail Sales")
+pacf(y.star, lag = 50, main = "PACF of Electronic Retail Sales")
+
 reg_diff_y.star <- diff(y.star, lag = 1, differences = 1)
 seasonal_diff_y.star <- diff(y.star, lag = 12, differences = 1)
 reg_seasonal_diff_y.star <- diff(reg_diff_y.star, lag = 12)
 
-par(mfrow=c(3, 1))
+par(mfrow=c(2, 1))
 acf(reg_diff_y.star, lag = 50, main = "ACF - Regular Differencing: Electronic Retail Sales")
-acf(seasonal_diff_y.star, lag = 50, main = "ACF - Seasonal Differencing: Electronic Retail Sales")
-acf(reg_seasonal_diff_y.star, lag = 50, main = "ACF - Regular and Seasonal Differencing: Electronic Retail Sales")
-
-par(mfrow=c(3, 1))
 pacf(reg_diff_y.star, lag = 50, main = "PACF - Regular Differencing: Electronic Retail Sales")
+
+par(mfrow=c(2, 1))
+acf(seasonal_diff_y.star, lag = 50, main = "ACF - Seasonal Differencing: Electronic Retail Sales")
 pacf(seasonal_diff_y.star, lag = 50, main = "PACF - Seasonal Differencing: Electronic Retail Sales")
+
+par(mfrow=c(2, 1))
+acf(reg_seasonal_diff_y.star, lag = 50, main = "ACF - Regular and Seasonal Differencing: Electronic Retail Sales")
 pacf(reg_seasonal_diff_y.star, lag = 50, main = "PACF - Regular and Seasonal Differencing: Electronic Retail Sales")
 
 y.star.star <- reg_seasonal_diff_y.star
@@ -201,13 +207,17 @@ y.star.star <- reg_seasonal_diff_y.star
 
 electronic_arima_model1 <- arima(y.star, order = c(0, 1, 1), seas = list(order = c(1, 1, 1), 12))
 
-acf(electronic_arima_model1$residuals, lag = 50, main = "ACF - Residuals of ARIMA Model 1: Electronic Retail Sales")
+par(mfrow=c(2,1))
+acf(electronic_arima_model1$residuals, lag = 50, main = "ACF - Residuals of ARIMA(0,1,1)(1,1,1)[12]: Electronic Retail Sales")
+pacf(electronic_arima_model1$residuals, lag = 50, main = "PACF - Residuals of ARIMA(0,1,1)(1,1,1)[12]: Electronic Retail Sales")
 Box.test(electronic_arima_model1$residuals, lag = 12, type="Ljung") # lag ? 12 or 20
 electronic_arima_model1$aic
 
 electronic_arima_model2 <- arima(y.star, order = c(0, 1, 1), seas = list(order = c(0, 1, 2), 12))
 
-acf(electronic_arima_model2$residuals, lag = 50, main = "ACF - Residuals of ARIMA Model 2: Electronic Retail Sales")
+par(mfrow=c(2,1))
+acf(electronic_arima_model2$residuals, lag = 50, main = "ACF - Residuals of ARIMA(0,1,1)(0,1,2)[12]: Electronic Retail Sales")
+pacf(electronic_arima_model2$residuals, lag = 50, main = "PACF - Residuals of ARIMA(0,1,1)(0,1,2)[12]: Electronic Retail Sales")
 Box.test(electronic_arima_model2$residuals, lag = 12, type="Ljung") # lag ? 12 or 20
 electronic_arima_model2$aic
 
@@ -219,10 +229,14 @@ Mod(polyroot(c(1, -0.5782))) # Invertibility
 all(c(Mod(polyroot(c(1, -0.3745))), Mod(polyroot(c(1, -0.1843))),Mod(polyroot(c(1, -0.5782)))) > 1)
 
 # T-Test Statistics for Parameters
-library(BETS) # CHANGE THIS - DO AS IN LECTURES
-t_test(electronic_arima_model1)
+arima_coefficients_model1 <- electronic_arima_model1$coef
+arima_se_model1 <- sqrt(diag(vcov(electronic_arima_model1)))
+t_test_arima_model1 <- arima_coefficients_model1 / arima_se_model1
+t_test_arima_model1
+abs(t_test_arima_model1) > 2
 
 forecast=predict(electronic_arima_model1, n.ahead = 12)
+
 forecast.value = ts((forecast$pred), start=start(retails_electronic_test), freq=12)
 ci.low= ts((forecast$pred-1.96*forecast$se),
            start=start(retails_electronic_test),freq=12)
@@ -236,26 +250,32 @@ df.forecast = data.frame(retails_electronic_test, exp(forecast.value),
 df.forecast
 
 ts.plot(df.forecast, 
-        col = c("black","blue","red","blue"),
-        lty = c(1, 2, 1, 2),
-        main = "Electronic Sale Forecast")
+        col = c("black","red","blue","blue"),
+        lty = c(1, 1, 2, 2),
+        main = "ARIMA Forecast vs Retail Electronic Sales",
+        xlab = "Time (in months) -- 2019",
+        ylab = "Retail Sales (in millions of dollars)",
+        ylim = c(5000, 12000))
 legend(1, 11500,
-       lty=c(1, 2, 1, 2), 
-       text.col=c("black","blue","red","blue"), 
-       legend=c("electronic_test",
-                "CIlow", "forecast", "CIhigh"),text.font=1, cex=0.5)
+       lty=c(1, 1, 2, 2), 
+       text.col=c("black","red","blue","blue"), 
+       legend=c("Electronic Retail Sales (Test)",
+                "ARIMA Forecast", "Confidence Interval - Low", "Confidence Interval - Low"),text.font=1, cex=0.5)
 
 ts.plot(cbind(retails_electronic_train, 
               exp(ci.low), exp(forecast.value),
               retails_electronic_test, exp(ci.high)),
         col=c("black", "blue", "red", "black" ,"blue"),
         lty = c(1,3,1,1,2),
-        main="Predicted monthly values using ARIMA",
-        ylab = "Retai sales of electronic products")
-abline(v = 2019.1, col = "green", lwd = 1.5)
+        main="Electronic Retail Sales with ARIMA Forecast",
+        ylab = "Retail Sales (in Millions of Dollars)",
+        xlab = "Time (in years)")
+abline(v = 2019.1, col = "black", lty = 2)
 legend(x=1993.12, y=15000, lty=c(1,1,3),
        col=c("black", "red", "blue"),
        text.col=c("black", "red", "blue"), 
-       legend=c("teal_data", 
-                "forecast", "Confidence Interval"),text.font=1, cex=0.5)
+       legend=c("Electronic Retail Sales", 
+                "ARIMA Forecast", "Confidence Interval"),text.font=1, cex=0.5)
 
+RMSE_ARIMA <- sqrt(mean((df.forecast$retails_electronic_test - df.forecast$exp.forecast.value)^2))
+RMSE_ARIMA
