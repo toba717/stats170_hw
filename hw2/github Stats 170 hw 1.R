@@ -1,8 +1,9 @@
-
 ### I. Introduction
 library(Quandl)
 library(dygraphs)
-Quandl.api_key("") 
+Quandl.api_key("")
+
+
 
 retail_electronic = Quandl(code="FRED/RSEASN",type="ts", collapse="monthly", meta=TRUE)
 # Do not include 2020 and 2021 years in our data
@@ -13,6 +14,7 @@ retail_hobby = Quandl(code = "FRED/RSSGHBMSN", type = "ts", collapse = "monthly"
 # Do not include 2020 and 2021 years in our data
 hobby = window(retail_hobby, end = c(2019, 12))
 # > 200 observations & start: 1992 1
+start(hobby)
 
 retail_furniture = Quandl(code = "FRED/RSFHFSN", type = "ts", collapse = "monthly", meta = TRUE)
 # Do not include 2020 and 2021 years in our data
@@ -20,8 +22,10 @@ furniture = window(retail_furniture, end = c(2019, 12))
 # > 200 observations & start: 1992 1
 
 retail_sales <- cbind(electronic, hobby, furniture)
-dygraph(retail_sales, main = "Retail Sales") %>%
-  dyOptions(colors = RColorBrewer::brewer.pal(3, "Set2"))
+dygraph(retail_sales, main = "Dygraph of All Three Variables",
+ylab = "Sales in Millions of Dollars", xlab = "Year") %>%
+  dyOptions(colors = RColorBrewer::brewer.pal(3, "Set2")) %>%
+    dyRangeSelector()
 
 retails_electronic_train = electronic %>% 
   window(end = c(2018, 12))
@@ -39,7 +43,10 @@ plot(mult_decomp_plot)
 add_decomp_plot$seasonal
 mult_decomp_plot$seasonal
 
-boxplot_elec <- boxplot(retails_electronic_train ~ cycle(retails_electronic_train))
+boxplot_elec <- boxplot(retails_electronic_train ~ cycle(retails_electronic_train),
+                        main = "Seasonal Boxplot of Retail Electronic Sales (Training)",
+                        xlab = "Month",
+                        ylab = "Retail Electronic Sales")
 
 ## III. 
 acf(retails_electronic_train)
@@ -72,22 +79,31 @@ acf(seasonal_diff, main = 'seasonal')
 plot(seasonal_diff)
 
 ## IV.
+dev.off()
 electronic_smooth <- HoltWinters(retails_electronic_train, seasonal = "multiplicative")
-plot(electronic_smooth, main = "Exponential Smoothing Model of Electronic Retail Sales", xlab = "Year", ylab = "Retail Sales (in Millions of Dollars")
+plot(electronic_smooth, main = "Exponential Smoothing Model of Electronic Retail Sales", xlab = "Year", ylab = "Retail Sales (in Millions of Dollars)")
+legend(1992, 15900, legend = c("Actual", "Predicted"), col = c("black", "red"), lty = 1, cex = 0.8)
 
 electronic_pred <- predict(electronic_smooth, n.ahead = 12)
 electronic_pred
 
+plot(electronic_smooth)
+
+dev.off()
+
 plot(electronic_smooth, electronic_pred, main = "Exponential Smoothing of Electronic Retail Sales With Forecasting",
      xlab = "Year", ylab = "Retail Sales (in Millions of Dollars)")
 lines(retails_elecronic_test, col = "blue", lty = 2)
+legend(1993, 15900, legend = c("Electronic Retail Sales (Train)", "Electronic Retail Sales (Test)", "Fitted Exp. Smoothing"), col = c("black", "blue", "red"), lty = c(1, 2, 1), cex = 0.6)
+
 
 par(mfrow = c(1, 2))
-plot(electronic_pred, main = "Actual (black) Vs Predicted\n (red) Retail Sales in 2019", xlab = "Time (in years)", ylab = "Retail Sales (in millions of dollars")
-lines(retails_elecronic_test, col = "red", lty = 2)
+plot(electronic_pred, main = "Exponential Smoothing\n Forecast vs Retail \nElectronic Sales", xlab = "Time (2019)", ylab = "Retail Sales (in millions of dollars)", col = "red")
+lines(retails_elecronic_test, col = "blue", lty = 2)
+legend(2019, 10900, legend = c("Electronic Retail Sales", "Fitted Exp. Smoothing") , col = c("blue", "red"), lty = 2:1, cex = 0.6)
 
 residual = as.numeric(retails_elecronic_test) - as.numeric(electronic_pred)
-plot(residual, main = "Residuals of Predicted\n Retail Sales in 2019", xlab = "Time (in years)", ylab = "Residuals (in millions of dollars")
+plot(residual, main = "Residuals of Exponential\n Smoothing Forecast", xlab = "Time (in months) -- 2019", ylab = "Residuals (in millions of dollars)")
 abline(h = 0, col = "red")
 
 ## V.
@@ -208,80 +224,80 @@ ystar = log.ts
 
 
 # I don't think we need this
-###########################################################################################################
-
-
-
-
-retails_furniture_train = furniture %>% window(end = c(2018, 12))
-retails_retails_train_log = log(retails_furniture_train)
-plot(sqrt(retails_furniture_train))
-plot(log(retails_furniture_train))
-plot((retails_furniture_train))
-
-retails_hobbies_train = hobby %>% window(end = c(2018, 12))
-retails_hobbies_train_log = log(retails_hobbies_train)
-plot(sqrt(retails_hobbies_train))
-plot(log(retails_hobbies_train))
-plot((retails_hobbies_train))
-
-# retails_elecronic_test = electronic %>% window(start = 2019)
-
-
-par(mfrow = c(1,2))
-model1 = lm(retails_electronic_train_log ~ retails_retails_train_log+ retails_hobbies_train_log)
-summary(model1) # find r squared value
-acf(model1$residual, lag = 50)
-pacf(model1$residual, lag = 50) #pacf cuts off, so use AR
-
-resmodel1=arima(residuals(model1), order=c(1,0,0), include.mean=F)
-acf(resmodel1$residuals)
-
-
-resmodel2=arima(residuals(model1), order=c(2,0,0), include.mean=F)
-acf(resmodel2$residuals)
-
-resmodel3=arima(residuals(model1), order=c(12,0,0), include.mean=F)
-acf(resmodel3$residuals)
-
-
-# install.packages("nlme") 
-library(nlme)
-# remove.packages("nlme")
-
-# this takes a long time to run
-models = gls(retails_electronic_train_log ~ retails_retails_train_log+ retails_hobbies_train_log, correlation = corARMA(c(0.3218, 0.0678,  0.0496,  0.0143,  -0.0014,  -0.2160,  0.1706,  0.0265,  0.0315,  -0.0466,  -0.0049,  0.5800), p = 12))
-
-dev.off()
-
-plot(y = residuals(models, type = "normalized"), x = as.vector(time(retails_electronic_train_log)), type = "l")
-abline(h = 0)
-
-acf(ts(residuals(models, type = "normalized")), lag = 50)
-
-
-resmodel3=arima(residuals(model1), order=c(12,0,0), include.mean=F)
-acf(resmodel3$residuals)
-
-
-###################################################
-# Trial 2
-
-# this takes a long time to run
-resmodel4=arima(residuals(model1), order=c(12,0,12), include.mean=F)
-acf(resmodel4$residuals, lag = 50)
-models1 = gls(retails_electronic_train_log ~ retails_retails_train_log+ retails_hobbies_train_log, correlation = corARMA(c(-0.0284,  0.0057,  -0.0253,  -0.0046,  -0.0022,  -0.0285,  -0.0170,  -0.0068,  0.0096,  -0.0131,  0.030,  0.9461, 0.5429,  0.4512,  0.4660,  0.5050,  0.5435,  0.4819,  0.4544,  0.4663,  0.4525,  0.4159,  0.3656,  -0.1197), p = 12, q = 12))
-
-dev.off()
-
-plot(y = residuals(models1, type = "normalized"), x = as.vector(time(retails_electronic_train_log)), type = "l")
-abline(h = 0)
-
-acf(ts(residuals(models1, type = "normalized")), lag = 50)
-
-
-###################################################
-
-###########################################################################################################
-
+############################################################################################################
+# 
+# 
+# 
+# 
+# retails_furniture_train = furniture %>% window(end = c(2018, 12))
+# retails_retails_train_log = log(retails_furniture_train)
+# plot(sqrt(retails_furniture_train))
+# plot(log(retails_furniture_train))
+# plot((retails_furniture_train))
+# 
+# retails_hobbies_train = hobby %>% window(end = c(2018, 12))
+# retails_hobbies_train_log = log(retails_hobbies_train)
+# plot(sqrt(retails_hobbies_train))
+# plot(log(retails_hobbies_train))
+# plot((retails_hobbies_train))
+# 
+# # retails_elecronic_test = electronic %>% window(start = 2019)
+# 
+# 
+# par(mfrow = c(1,2))
+# model1 = lm(retails_electronic_train_log ~ retails_retails_train_log+ retails_hobbies_train_log)
+# summary(model1) # find r squared value
+# acf(model1$residual, lag = 50)
+# pacf(model1$residual, lag = 50) #pacf cuts off, so use AR
+# 
+# resmodel1=arima(residuals(model1), order=c(1,0,0), include.mean=F)
+# acf(resmodel1$residuals)
+# 
+# 
+# resmodel2=arima(residuals(model1), order=c(2,0,0), include.mean=F)
+# acf(resmodel2$residuals)
+# 
+# resmodel3=arima(residuals(model1), order=c(12,0,0), include.mean=F)
+# acf(resmodel3$residuals)
+# 
+# 
+# install.packages("nlme")
+# library(nlme)
+# # remove.packages("nlme")
+# 
+# # this takes a long time to run
+# models = gls(retails_electronic_train_log ~ retails_retails_train_log+ retails_hobbies_train_log, correlation = corARMA(c(0.3218, 0.0678,  0.0496,  0.0143,  -0.0014,  -0.2160,  0.1706,  0.0265,  0.0315,  -0.0466,  -0.0049,  0.5800), p = 12))    
+# 
+# dev.off()
+# 
+# plot(y = residuals(models, type = "normalized"), x = as.vector(time(retails_electronic_train_log)), type = "l")
+# abline(h = 0)
+# 
+# acf(ts(residuals(models, type = "normalized")), lag = 50)
+# 
+# 
+# resmodel3=arima(residuals(model1), order=c(12,0,0), include.mean=F)
+# acf(resmodel3$residuals)
+# 
+# 
+# ###################################################
+# # Trial 2
+# 
+# # this takes a long time to run
+# resmodel4=arima(residuals(model1), order=c(12,0,12), include.mean=F)
+# acf(resmodel4$residuals, lag = 50)
+# models1 = gls(retails_electronic_train_log ~ retails_retails_train_log+ retails_hobbies_train_log, correlation = corARMA(c(-0.0284,  0.0057,  -0.0253,  -0.0046,  -0.0022,  -0.0285,  -0.0170,  -0.0068,  0.0096,  -0.0131,  0.030,  0.9461, 0.5429,  0.4512,  0.4660,  0.5050,  0.5435,  0.4819,  0.4544,  0.4663,  0.4525,  0.4159,  0.3656,  -0.1197), p = 12, q = 12))    
+# 
+# dev.off()
+# 
+# plot(y = residuals(models1, type = "normalized"), x = as.vector(time(retails_electronic_train_log)), type = "l")
+# abline(h = 0)
+# 
+# acf(ts(residuals(models1, type = "normalized")), lag = 50)
+# 
+# 
+# ###################################################
+# 
+############################################################################################################
+Footer
 
