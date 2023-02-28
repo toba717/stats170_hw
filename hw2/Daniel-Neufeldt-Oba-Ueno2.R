@@ -8,7 +8,7 @@
 ### I. Introduction
 library(Quandl)
 library(dygraphs)
-Quandl.api_key("")
+Quandl.api_key("Rtc_Eon27jXhwyGeEfyr")
 
 retail_electronic = Quandl(code="FRED/RSEASN",type="ts", collapse="monthly", meta=TRUE)
 # Do not include 2020 and 2021 years in our data
@@ -296,8 +296,6 @@ mlr_residuals <- lm(y ~ x1 + x2)$residuals # change name
 par(mfrow = c(2,1))
 acf(mlr_residuals)
 pacf(mlr_residuals)
-
-
 
 
 
