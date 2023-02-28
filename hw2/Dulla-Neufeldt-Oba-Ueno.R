@@ -1,0 +1,477 @@
+###
+# Anish Dulla, Daniel Neufeldt, Takao Oba, Shoichiro Ueno
+# Homework 2
+# February 24, 2023
+###
+
+
+### I. Introduction
+library(Quandl)
+library(dygraphs)
+Quandl.api_key("Rtc_Eon27jXhwyGeEfyr")
+
+retail_electronic = Quandl(code="FRED/RSEASN",type="ts", collapse="monthly", meta=TRUE)
+# Do not include 2020 and 2021 years in our data
+electronic = window(retail_electronic, end = c(2019, 12))
+# > 200 observations & start: 1992 1
+
+retail_hobby = Quandl(code = "FRED/RSSGHBMSN", type = "ts", collapse = "monthly", meta = TRUE)
+# Do not include 2020 and 2021 years in our data
+hobby = window(retail_hobby, end = c(2019, 12))
+# > 200 observations & start: 1992 1
+start(hobby)
+
+retail_furniture = Quandl(code = "FRED/RSFHFSN", type = "ts", collapse = "monthly", meta = TRUE)
+# Do not include 2020 and 2021 years in our data
+furniture = window(retail_furniture, end = c(2019, 12))
+# > 200 observations & start: 1992 1
+
+retail_sales <- cbind(electronic, hobby, furniture)
+dygraph(retail_sales, main = "Electronic, Hobby, and Furniture Sales Over Time",
+        ylab = "Sales (in Millions of Dollars)", xlab = "Time (in years)") %>%
+  dyOptions(colors = RColorBrewer::brewer.pal(3, "Set2")) %>%
+  dyRangeSelector()
+
+retails_electronic_train = electronic %>% 
+  window(end = c(2018, 12))
+
+retails_electronic_test = electronic %>% 
+  window(start = 2019)
+
+### II. Components Features of the dependent variable
+plot(retails_electronic_train)
+
+add_decomp <- (decompose(retails_electronic_train, type='add')) 
+mult_decomp <- decompose(retails_electronic_train, type = "mult")
+
+plot(add_decomp)
+plot(mult_decomp)
+# multiplicative decomposition is better
+
+boxplot_elec <- boxplot(retails_electronic_train ~ cycle(retails_electronic_train),
+                        main = "Seasonal Boxplot of Retail Electronic Sales (Training)",
+                        xlab = "Month",
+                        ylab = "Retail Electronic Sales")
+
+### III. Autocorrelation features of the random term of the dependent variable in the training set
+
+
+mult_decomp_random_term <- mult_decomp$random
+
+par(mfrow=c(2, 1))
+acf(window(mult_decomp_random_term, start = c(1992, 7), end = c(2018, 6)), main = "ACF - Multiplicative Decomposition \n of Random Term: Electronic Retail Sales")
+pacf(window(mult_decomp_random_term, start = c(1992, 7), end = c(2018, 6)), main = "PACF - Multiplicative Decomposition \n of Random Term: Electronic Retail Sales")
+
+### IV. Exponential smoothing modeling and forecasting
+
+electronic_smooth <- HoltWinters(retails_electronic_train, seasonal = "multiplicative")
+plot(electronic_smooth, main = "Exponential Smoothing Model of Electronic Retail Sales", xlab = "Year", ylab = "Retail Sales (in Millions of Dollars)")
+legend(2011, 15999, legend=c("Electronic Retail Sales", "Fitted Exp. Smoothing"), col=c("black", "red"), lty=1, cex=0.6)
+
+electronic_pred <- predict(electronic_smooth, n.ahead = 12) # predict with smoothing model
+electronic_pred
+
+plot(electronic_smooth, electronic_pred, main = "Exponential Smoothing of Electronic Retail Sales With Forecasting",
+     xlab = "Year", ylab = "Retail Sales (in Millions of Dollars)")
+lines(retails_electronic_test, col = "blue", lty = 2)
+legend(1993, 15900, legend = c("Electronic Retail Sales (Train)", "Electronic Retail Sales (Test)", "Fitted Exp. Smoothing"), col = c("black", "blue", "red"), lty = c(1, 2, 1), cex = 0.6)
+
+
+par(mfrow = c(1, 2))
+plot(electronic_pred, main = "Exponential Smoothing\n Forecast vs Retail \nElectronic Sales", xlab = "Time (2019)", ylab = "Retail Sales (in millions of dollars)", col = "red")
+lines(retails_electronic_test, col = "blue", lty = 2)
+legend(2019, 10900, legend = c("Electronic Retail Sales", "Fitted Exp. Smoothing") , col = c("blue", "red"), lty = 2:1, cex = 0.6)
+
+# plot residuals of exp smoothing model vs testing data
+residual = as.numeric(retails_electronic_test) - as.numeric(electronic_pred)
+plot(residual, main = "Residuals of Exponential\n Smoothing Forecast", xlab = "Time (in months) -- 2019", ylab = "Residuals (in millions of dollars)")
+abline(h = 0, col = "red")
+
+### V. Polynomial regression plus seasonal effect modeling and forecasting
+
+mult_decomp_seasonal_term <- mult_decomp$seasonal
+
+regression_df <- data.frame(as.numeric(time(retails_electronic_train)))
+regression_df$electronic_sales <- as.numeric(retails_electronic_train)
+colnames(regression_df)[1] <- "time"
+regression_df$time2 <- regression_df$time ^ 2
+regression_df$time3 <- regression_df$time ^ 3
+
+head(regression_df)
+
+# try three different polynomial regression models
+lin_model <- lm(electronic_sales ~ time, data = regression_df)
+quad_model <- lm(electronic_sales ~ time + time2, data = regression_df)
+cubic_model <- lm(electronic_sales ~ time + time2 + time3, data = regression_df)
+
+lin_model_fit <- as.numeric(predict(lin_model, data = regression_df))
+quad_model_fit <- as.numeric(predict(quad_model, data = regression_df))
+cubic_model_fit <- as.numeric(predict(cubic_model, data = regression_df))
+
+# after estimating trend, multiply by seasonal component
+seasonals <- as.numeric(mult_decomp$seasonal)[1:12]
+total_lin_model_fit <- lin_model_fit * seasonals
+total_quad_model_fit <- quad_model_fit * seasonals
+total_cubic_model_fit <- cubic_model_fit * seasonals
+
+lin_residuals <- as.numeric(retails_electronic_train) - total_lin_model_fit
+quad_residuals <- as.numeric(retails_electronic_train) - total_quad_model_fit
+cubic_residuals <- as.numeric(retails_electronic_train) - total_cubic_model_fit
+
+scaled_lin_residuals <- scale(lin_residuals)
+scaled_quad_residuals <- scale(quad_residuals)
+scaled_cubic_residuals <- scale(cubic_residuals)
+
+par(mfrow=c(1,3))
+
+plot(ts(scaled_lin_residuals), main = "Scaled Residual Plot - Linear Model", ylab = "Standarized Residuals", xlab = "Time (in months)")
+abline(h = 0, col = "red")
+
+plot(ts(scaled_quad_residuals), main = "Scaled Residual Plot - Quadratic Model", ylab = "Standarized Residuals", xlab = "Time (in months)")
+abline(h = 0, col = "red")
+
+plot(ts(scaled_cubic_residuals), main = "Scaled Residual Plot - Cubic Model", ylab = "Standarized Residuals", xlab = "Time (in months)")
+abline(h = 0, col = "red")
+
+testTimeRE <- data.frame(as.numeric(time(retails_electronic_test)))
+colnames(testTimeRE)[1] <- "time"
+testTimeRE$time2 <- testTimeRE$time ^ 2
+testTimeRE$time3 <- testTimeRE$time ^ 3
+
+predictions_lin <- predict(lin_model, newdata=testTimeRE)
+predictions_quad <- predict(quad_model, newdata=testTimeRE)
+predictions_cubic <- predict(cubic_model, newdata=testTimeRE)
+
+seasonals <- as.numeric(mult_decomp$seasonal)[1:12]
+total_predictions_lin <- predictions_lin * seasonals
+total_predictions_quad <- predictions_quad * seasonals
+total_predictions_cubic <- predictions_cubic * seasonals
+
+plot(retails_electronic_test - total_predictions_lin)
+abline(h = 0, col = "red")
+
+plot(retails_electronic_test - total_predictions_quad)
+abline(h = 0, col = "red")
+
+plot(retails_electronic_test - total_predictions_cubic)
+abline(h = 0, col = "red")
+
+RMSE_lin <- sqrt(mean((retails_electronic_test - total_predictions_lin)^2))
+RMSE_quad <- sqrt(mean((retails_electronic_test - total_predictions_quad)^2))
+RMSE_cubic <- sqrt(mean((retails_electronic_test - total_predictions_cubic)^2))
+
+min(RMSE_lin, RMSE_quad, RMSE_cubic) #RMSE_quad is smallest
+
+### VI. Conclusion
+
+RMSE_exp_smooth <- sqrt(mean((retails_electronic_test - electronic_pred)^2))
+RMSE_exp_smooth
+average_forecast <- (total_predictions_quad + electronic_pred) / 2
+average_RMSE <- mean(c(RMSE_exp_smooth, RMSE_quad))
+
+### VII. ARIMA modeling and forecasting
+
+### Section VII.1. Address the need for pre-transformations
+
+y <- retails_electronic_train
+
+par(mfrow=c(3, 1))
+plot(y ^ (1/2), main = "Sqrt Transformation of Electronic Retail Sales",
+     xlab = "Time (in years)", ylab = "Sales (in millions)")
+plot(y ^ (1/4), main = "Quartic Transformation of Electronic Retail Sales",
+     xlab = "Time (in years)", ylab = "Sales (in millions)")
+plot(log(y), main = "Log Transformation of Electronic Retail Sales",
+     xlab = "Time (in years)", ylab = "Sales (in millions)")
+
+y.star <- log(y)
+
+### Section VII.2. Assessment of mean stationarity
+
+par(mfrow = c(2,1))
+acf(y.star, lag = 50, main = "ACF of Electronic Retail Sales")
+pacf(y.star, lag = 50, main = "PACF of Electronic Retail Sales")
+
+reg_diff_y.star <- diff(y.star, lag = 1, differences = 1)
+seasonal_diff_y.star <- diff(y.star, lag = 12, differences = 1)
+reg_seasonal_diff_y.star <- diff(reg_diff_y.star, lag = 12)
+
+par(mfrow=c(2, 1))
+acf(reg_diff_y.star, lag = 50, main = "ACF - Regular Differencing: Electronic Retail Sales")
+pacf(reg_diff_y.star, lag = 50, main = "PACF - Regular Differencing: Electronic Retail Sales")
+
+par(mfrow=c(2, 1))
+acf(seasonal_diff_y.star, lag = 50, main = "ACF - Seasonal Differencing: Electronic Retail Sales")
+pacf(seasonal_diff_y.star, lag = 50, main = "PACF - Seasonal Differencing: Electronic Retail Sales")
+
+par(mfrow=c(2, 1))
+acf(reg_seasonal_diff_y.star, lag = 50, main = "ACF - Regular and Seasonal Differencing: Electronic Retail Sales")
+pacf(reg_seasonal_diff_y.star, lag = 50, main = "PACF - Regular and Seasonal Differencing: Electronic Retail Sales")
+
+y.star.star <- reg_seasonal_diff_y.star
+
+### Section VII.3. Identification
+
+electronic_arima_model1 <- arima(y.star, order = c(0, 1, 1), seas = list(order = c(1, 1, 1), 12))
+
+### Section VII.4 Fit and diagnose
+
+par(mfrow=c(2,1))
+acf(electronic_arima_model1$residuals, lag = 50, main = "ACF - Residuals of ARIMA(0,1,1)(1,1,1)[12]: Electronic Retail Sales")
+pacf(electronic_arima_model1$residuals, lag = 50, main = "PACF - Residuals of ARIMA(0,1,1)(1,1,1)[12]: Electronic Retail Sales")
+Box.test(electronic_arima_model1$residuals, lag = 12, type="Ljung") # lag ? 12 or 20
+electronic_arima_model1$aic
+
+electronic_arima_model2 <- arima(y.star, order = c(0, 1, 1), seas = list(order = c(0, 1, 2), 12))
+
+par(mfrow=c(2,1))
+acf(electronic_arima_model2$residuals, lag = 50, main = "ACF - Residuals of ARIMA(0,1,1)(0,1,2)[12]: Electronic Retail Sales")
+pacf(electronic_arima_model2$residuals, lag = 50, main = "PACF - Residuals of ARIMA(0,1,1)(0,1,2)[12]: Electronic Retail Sales")
+Box.test(electronic_arima_model2$residuals, lag = 12, type="Ljung") # lag ? 12 or 20
+electronic_arima_model2$aic
+
+# comes from electronic_arima_model1 coefficients
+Mod(polyroot(c(1, -0.1843))) # Stationarity
+Mod(polyroot(c(1, -0.3745))) # Invertibility
+Mod(polyroot(c(1, -0.5782))) # Invertibility
+
+all(c(Mod(polyroot(c(1, -0.3745))), Mod(polyroot(c(1, -0.1843))), Mod(polyroot(c(1, -0.5782)))) > 1)
+
+# T-Test Statistics for Parameters 
+arima_coefficients_model1 <- electronic_arima_model1$coef
+arima_se_model1 <- sqrt(diag(vcov(electronic_arima_model1)))
+t_test_arima_model1 <- arima_coefficients_model1 / arima_se_model1
+t_test_arima_model1
+abs(t_test_arima_model1) > 2 # test for significance
+
+### Section VII.5-Forecasting
+
+forecast <- predict(electronic_arima_model1, n.ahead = 12)
+forecast.value <- ts((forecast$pred), start=start(retails_electronic_test), freq=12)
+ci.low <- ts((forecast$pred-1.96*forecast$se), start=start(retails_electronic_test),freq=12)
+ci.high=ts((forecast$pred+1.96*forecast$se), start=start(retails_electronic_test),freq=12)
+
+df.forecast = data.frame(retails_electronic_test, exp(forecast.value), 
+              exp(ci.low), exp(ci.high), forecast$se) #exp due to log transform
+
+df.forecast
+
+ts.plot(cbind(retails_electronic_train, exp(ci.low), exp(forecast.value),
+              retails_electronic_test, exp(ci.high)),
+        col=c("black", "blue", "red", "black" ,"blue"),
+        lty = c(1,3,1,1,2), main="Electronic Retail Sales with ARIMA Forecast",
+        ylab = "Retail Sales (in Millions of Dollars)", xlab = "Time (in years)")
+abline(v = 2019.1, col = "black", lty = 2)
+legend(x=1993.12, y=15000, lty=c(1,1,3), col=c("black", "red", "blue"),
+       text.col=c("black", "red", "blue"), legend=c("Electronic Retail Sales", 
+                                                    "ARIMA Forecast", "Confidence Interval"),text.font=1, cex=0.5)
+
+ts.plot(df.forecast, col = c("black","red","blue","blue"),lty = c(1, 1, 2, 2),
+        main = "ARIMA Forecast vs Retail Electronic Sales",
+        xlab = "Time (in months) -- 2019",
+        ylab = "Retail Sales (in millions of dollars)", ylim = c(5000, 12000))
+legend(1, 11500, lty=c(1, 1, 2, 2), text.col=c("black","red","blue","blue"), 
+       legend=c("Electronic Retail Sales (Test)", "ARIMA Forecast", "Confidence Interval - Low", 
+                "Confidence Interval - High"),text.font=1, cex=0.5)
+
+RMSE_ARIMA <- sqrt(mean((df.forecast$retails_electronic_test - df.forecast$exp.forecast.value)^2))
+RMSE_ARIMA
+
+### VIII. Multiple regression with ARMA residuals
+
+retails_hobby_train = hobby %>% 
+  window(end = c(2018, 12))
+
+retails_furniture_train = furniture %>% 
+  window(end = c(2018, 12))
+
+retails_hobby_test = hobby %>% 
+  window(start = 2019)
+
+retails_furniture_test = furniture %>% 
+  window(start = 2019)
+
+x1 <- retails_hobby_train
+x2 <- retails_furniture_train
+
+x1.star <- log(x1)
+x2.star <- log(x2)
+
+### Section VIII.1 Causal model Fit
+
+mlr.star <- lm(y.star ~ x1.star + x2.star)
+
+mlr.star.residuals <- mlr.star$residuals
+
+resmean <- mean(mlr.star.residuals)
+ressd　<-　sd(mlr.star.residuals)
+sdresiduals　<-　(mlr.star.residuals-resmean)/ressd # standardize the residuals
+
+sdresiduals.ts <- ts(sdresiduals, start = start(retails_electronic_train), frequency = 12)
+mlr.star.star.residuals = diff(diff(sdresiduals.ts, 1), 12)
+plot(mlr.star.star.residuals, main = "Standardized Residuals of Multiple Regression Model",
+     ylab = "Standardized Residuals", xlab = "Time (in years)")
+abline(h = 0, col = "red")
+
+par(mfrow = c(2, 1))
+acf(mlr.star.star.residuals, lag.max = 50, main = "ACF - Standardized Residuals of Pre-Transformed Multiple Regression Model")
+pacf(mlr.star.star.residuals, lag.max = 50, main = "PACF - Standardized Residuals of Pre-Transformed Multiple Regression Model")
+
+# fitting arima model to residuals of multiple regression model
+res_model <- arima(sdresiduals.ts, order = c(1, 1, 1), seas = list(order = c(1, 1, 1), 12))
+
+res_model
+par(mfrow = c(2, 1))
+acf(resid(res_model), lag.max = 50, main = "ACF - Residuals of ARIMA Fit to Standarized Residuals")
+pacf(resid(res_model), lag.max = 50, main = "PACF - Residuals of ARIMA Fit to Standarized Residuals")
+
+Box.test(resid(res_model), lag = 12, type = "Ljung") # testing if white noise
+
+library(nlme)
+modelgls <- gls(y.star~x1.star+x2.star, correlation=corARMA(c(-0.1547, -0.6293), p = 1, q=1))
+summary(modelgls)
+
+# now checkinf if GLS model is good fit to data by analyzing residuals
+par(mfrow=c(2,1))
+acf(residuals(modelgls, type = "normalized"), lag.max = 50,
+    main = "ACF - Residuals of GLS Model") 
+pacf(residuals(modelgls, type = "normalized"), lag.max = 50,
+    main = "PACF - Residuals of GLS Model")
+
+# begin forecast onto test set
+df_future <- data.frame(x1.star = log(retails_hobby_test), 
+                       x2.star = log(retails_furniture_test))
+
+gls_forecast <- predict(modelgls, df_future)
+
+gls_forecast <- exp(gls_forecast)
+
+ts.plot(cbind(retails_electronic_train,ts(gls_forecast[1:12], 
+        start = start(retails_electronic_test), frequency = 12),
+        retails_electronic_test), col = c("black", "red"),
+        ylab = "Retail Sales (in Millions of Dollars)",
+        xlab = "Time (in years)",
+        main = "Electronic Retail Sales with GLS Forecast")
+abline(v = 2019.1, col = "black", lty = 2)
+legend(x=1993.12, y=15000, lty=c(1,1,3), 
+       col=c("black", "red"), text.col=c("black", "red"), 
+       legend=c("Electronic Retail Sales","GLS Forecast"), text.font=1, cex=0.5)
+
+df = data.frame(retails_electronic_test, gls_forecast)
+ts.plot(df, col = c("black", "red"), xlab = "Time (in months) -- 2019",
+        ylab = "Retail Sales (in millions of Dollars)",
+        main = "GLS Forecast vs Retail Electronic Sales")
+legend(x=1, y=10700, lty=c(1,1,3),
+       col=c("black", "red"),
+       text.col=c("black", "red"), 
+       legend=c("Electronic Retail Sales (Test)", "GLS Forecast"), text.font=1, cex=0.5)
+
+RMSE_GLS <- sqrt(mean((retails_electronic_test - gls_forecast)^2))
+RMSE_GLS
+
+### IX. Vector autoregression
+
+# generate the multiple time series
+mts.data <- cbind(retails_electronic_train, retails_furniture_train, retails_hobby_train)
+colnames(mts.data) = c("electronic", "hobby", "furniture")
+
+# multiple time series of pre-transformed data
+mts.data_star = cbind(log(retails_electronic_train), sqrt(retails_hobby_train), log(retails_furniture_train))
+colnames(mts.data_star) = c("electronic*", "hobby*", "furniture*")
+plot(mts.data_star)
+
+# view the acf of the multiple time series of pre-transformed data
+acf(mts.data_star, lag.max = 50)
+
+# multiple time series of differenced, pre-transformed data
+mts.data_star_star = diff(diff(mts.data_star, 1), 12)
+colnames(mts.data_star_star) = c("electronic**", "hobby**", "furniture**")
+acf(mts.data_star_star, lag.max = 50, lwd=1.3) # approximately white noise
+
+
+# Find the ccf
+acf(mts.data_star_star, lag = 50)
+
+# determined that p = 11 from the ccf plot
+var.retail = VAR(mts.data, p = 11)
+
+# extract significant coefficients using the summary function
+summary(var.retail)
+
+# determine if the roots are all less than 1
+roots(var.retail, modulus = TRUE)
+
+# constructing the impulse response function for three variables
+irf_electronics <- irf(var.retail, impulse = "electronic", response = c("electronic", "hobby", "furniture"), n.ahead = 12)
+irf_furniture <- irf(var.retail, impulse = "furniture", response = c("electronic", "hobby", "furniture"), n.ahead = 12)
+irf_hobbies <- irf(var.retail, impulse = "hobby", response = c("electronic", "hobby", "furniture"), n.ahead = 12)
+
+# plotting the imf for all three variables
+plot(irf_electronics)
+plot(irf_furniture)
+plot(irf_hobbies)
+
+# generate a prediction 
+var.pred = predict(var.retail, n.ahead = 12, ci = 0.95)
+var.pred.electronic = ts(var.pred$fcst$electronic[, 1], 
+                         start = start(retails_electronic_test), frequency = 12)
+
+# lower of the CI
+var.pred.cilower = ts(var.pred$fcst$electronic[, 2], 
+                      start = start(retails_electronic_test), frequency = 12)
+# upper of the CI
+var.pred.ciupper = ts(var.pred$fcst$electronic[, 3], 
+                      start = start(retails_electronic_test), frequency = 12)
+
+# this will be used to plot in the next step
+var_df = cbind(retails_electronic_test, var.pred.electronic, 
+               var.pred.cilower, var.pred.ciupper)
+
+# close up of the testing set
+ts.plot(var_df, 
+        col = c("black", "red", "blue", "blue"), 
+        lty = c(1, 1, 3, 3),
+        main = "VAR of Just the Testing Data (p = 11)")
+
+legend(x=2019.0, y=12000, lty=c(1,1,3),
+       col=c("black", "red", "blue"),
+       text.col=c("black", "red", "blue"), 
+       legend=c("real_data", "VAR(p = 11)", "CI"),
+       text.font=1, cex=1)
+
+# overall time series
+ts.plot(cbind(retails_electronic_train,
+              ts(var_df[, c(2, 3, 4)], start = start(retails_electronic_test), 
+                 frequency = 12),
+              retails_electronic_test),
+        col = c("black", "red", "blue", "blue"),
+        lty = c(1, 1, 2, 2), main = "VAR Including Training Data (p = 11)")
+abline(v = 2019.1, col = "green", lwd = 1.5)
+legend(x=1993.12, y=15000, lty=c(1,1,3),
+       col=c("black", "red", "blue"),
+       text.col=c("black", "red", "blue"), 
+       legend=c("real_data","VAR(p = 11)", "CI"),text.font=1, cex=1)
+
+# RMSE
+RMSE_VAR <- sqrt(mean((var_df[, 1] - var_df[, 2])^2))
+RMSE_VAR
+
+### X. Forecast Comparison
+
+forecast_comparison <- cbind(electronic_pred, exp(forecast$pred), 
+                            gls_forecast, var.pred.electronic)
+colnames(forecast_comparison) <- c("Exponential Smoothing", "ARIMA", 
+                                  "AutoCorrelated Model","VAR")
+ts.plot(forecast_comparison,
+        col = c("red", "blue", "green", "brown"),
+        lty = 5, lwd = 1.5, main = "Comparison of Forecast Methods",
+        xlab = "Time (in years)", ylab = "Retail Electronic Sales (in millions of dollars)")
+
+lines(retails_electronic_test, col = "black", lwd = 2)
+legend(x = 2019.0, y = 12000, lty=c(1,2,2,2,2),
+       col=c("black", "red", "blue", "green", "brown"),
+       #text.col=c("black","red", "blue", "green", "brown"), 
+       legend=c("Actual Values",
+                "Exponential Smoothing", 
+                "ARIMA", 
+                "AutoCorrelated Model",
+                "VAR"),text.font=1, cex=0.5)
